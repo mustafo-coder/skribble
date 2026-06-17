@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/coverage
+.git
+.github
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+docs
+**/.DS_Store

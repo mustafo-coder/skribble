@@ -1,0 +1,89 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Full stack: postgres + redis + backend + frontend + edge nginx.
+#   docker compose up --build        # build & run everything
+#   docker compose up --scale backend=3   # horizontal scaling demo (sticky via nginx)
+#
+# The edge nginx is the ONLY published port (80). Frontend/backend are internal.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-skribble}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skribble_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-skribble}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-skribble}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [skribble]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [skribble]
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skribble}:${POSTGRES_PASSWORD:-skribble_dev_password}@postgres:5432/${POSTGRES_DB:-skribble}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      JWT_ACCESS_TTL: 900
+      JWT_REFRESH_TTL: 2592000
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
+      SEED_ON_BOOT: 'true'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    expose: ['3000']
+    networks: [skribble]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        # Same-origin: client talks to the edge nginx, which proxies to backend.
+        VITE_API_URL: ''
+        VITE_SOCKET_URL: ''
+    restart: unless-stopped
+    expose: ['80']
+    depends_on: [backend]
+    networks: [skribble]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - '${EDGE_PORT:-80}:80'
+    depends_on: [backend, frontend]
+    networks: [skribble]
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  skribble:
+    driver: bridge

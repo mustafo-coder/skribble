@@ -1,0 +1,281 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Skribble — Prisma schema
+//
+// Design philosophy:
+//   * PostgreSQL is the system of record for *durable* data: accounts, auth,
+//     and the historical record of finished games (for stats/leaderboards).
+//   * Redis is the source of truth for *live* game state (see RedisRoomStore).
+//     We persist a Game/Round/Guess/Score trail when a game ends or as rounds
+//     complete, so Postgres never sits in the hot path of a 60fps drawing loop.
+//
+// Relationship cheat-sheet (explained in docs/ARCHITECTURE.md §Database):
+//   User 1─*  RefreshToken          (a user has many active/rotated tokens)
+//   User 1─*  Room (as host)        (set-null on user delete; room survives)
+//   User 1─*  RoomPlayer            (a user's membership rows; guests => null)
+//   Room 1─*  RoomPlayer            (cascade: deleting a room removes members)
+//   Room 1─*  Game                  (a room can host many sequential games)
+//   Game 1─*  Round                 (one Round == one player's drawing turn)
+//   Game 1─*  Score                 (final per-player tally for that game)
+//   Round *─1 Word                  (the word drawn; set-null if word removed)
+//   Round 1─* Guess                 (every guess attempt in that turn)
+//   Word is a shared dictionary, independent of any game.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Language {
+  en
+  ru
+  es
+  de
+  fr
+}
+
+enum WordCategory {
+  ANIMALS
+  FOOD
+  MOVIES
+  OBJECTS
+  TECHNOLOGY
+  COUNTRIES
+  SPORTS
+}
+
+enum WordDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum RoomStatus {
+  LOBBY
+  IN_PROGRESS
+  FINISHED
+}
+
+enum GameStatus {
+  ACTIVE
+  FINISHED
+  ABANDONED
+}
+
+// ─── Accounts & auth ─────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique // null for guests
+  username     String   @unique
+  passwordHash String? // null for guests / OAuth
+  avatar       String   @default("avatar-01")
+  isGuest      Boolean  @default(false)
+
+  // Aggregate stats, updated transactionally when a game finishes.
+  totalGames Int @default(0)
+  totalWins  Int @default(0)
+  rating     Int @default(1000) // simple Elo-like ladder
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  hostedRooms   Room[]         @relation("RoomHost")
+  roomPlayers   RoomPlayer[]
+  guesses       Guess[]
+  scores        Score[]
+
+  @@index([rating])
+  @@map("users")
+}
+
+/// Rotated refresh tokens. We store only a SHA-256 hash; rotation revokes the
+/// previous token, and reuse detection can revoke an entire family.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  family    String // rotation family id; reuse of a revoked token nukes the family
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ─── Lobby ───────────────────────────────────────────────────────────────────
+
+model Room {
+  id   String @id @default(cuid())
+  code String @unique // short shareable join code
+
+  name       String
+  hostUserId String?
+
+  // ── Settings (mirror RoomSettings in @skribble/shared) ──
+  maxPlayers         Int            @default(8)
+  rounds             Int            @default(3)
+  drawTimeSec        Int            @default(80)
+  language           Language       @default(en)
+  categories         WordCategory[]
+  isPrivate          Boolean        @default(false)
+  customWordsEnabled Boolean        @default(false)
+  customWords        String[]
+  hintsEnabled       Boolean        @default(true)
+  wordChoiceCount    Int            @default(3)
+
+  status    RoomStatus @default(LOBBY)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  host    User?        @relation("RoomHost", fields: [hostUserId], references: [id], onDelete: SetNull)
+  players RoomPlayer[]
+  games   Game[]
+
+  @@index([status, isPrivate])
+  @@index([hostUserId])
+  @@map("rooms")
+}
+
+/// Membership of a user/guest in a room. Guests have userId = null but still get
+/// a row so the historical record is complete.
+model RoomPlayer {
+  id       String    @id @default(cuid())
+  roomId   String
+  userId   String?
+  playerId String // room-scoped stable id (matches Redis + socket.data.playerId)
+  username String
+  avatar   String    @default("avatar-01")
+  isHost   Boolean   @default(false)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  room Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([roomId, playerId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("room_players")
+}
+
+// ─── Game history ─────────────────────────────────────────────────────────────
+
+model Game {
+  id           String     @id @default(cuid())
+  roomId       String
+  status       GameStatus @default(ACTIVE)
+  totalRounds  Int
+  winnerUserId String?
+  startedAt    DateTime   @default(now())
+  endedAt      DateTime?
+
+  room   Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  rounds Round[]
+  scores Score[]
+
+  @@index([roomId])
+  @@index([status])
+  @@map("games")
+}
+
+/// One drawing turn: a single drawer attempts a single word.
+model Round {
+  id          String    @id @default(cuid())
+  gameId      String
+  roundNumber Int // 1-based round (a "round" = every player draws once)
+  turnIndex   Int // drawer index within the round
+  drawerId    String // playerId of the drawer
+  drawerName  String
+  wordId      String?
+  word        String // snapshot of the chosen word
+  difficulty  WordDifficulty @default(MEDIUM)
+  drawTimeSec Int
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  game    Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  wordRef Word?   @relation(fields: [wordId], references: [id], onDelete: SetNull)
+  guesses Guess[]
+
+  @@unique([gameId, roundNumber, turnIndex])
+  @@index([gameId])
+  @@map("rounds")
+}
+
+// ─── Dictionary ────────────────────────────────────────────────────────────────
+
+model Word {
+  id         String         @id @default(cuid())
+  text       String
+  language   Language       @default(en)
+  category   WordCategory
+  difficulty WordDifficulty @default(MEDIUM)
+  isCustom   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+
+  rounds Round[]
+
+  // A given spelling is unique per language so we don't duplicate dictionary rows.
+  @@unique([text, language])
+  // Hot query: "give me N random words for (language, category, difficulty)".
+  @@index([language, category, difficulty])
+  @@map("words")
+}
+
+// ─── Per-turn guesses & per-game scores ─────────────────────────────────────────
+
+model Guess {
+  id            String   @id @default(cuid())
+  roundId       String
+  userId        String?
+  playerId      String
+  username      String
+  text          String
+  isCorrect     Boolean  @default(false)
+  isClose       Boolean  @default(false)
+  pointsAwarded Int      @default(0)
+  guessOrder    Int? // 0-based order among correct guessers
+  createdAt     DateTime @default(now())
+
+  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([roundId])
+  @@index([userId])
+  @@map("guesses")
+}
+
+/// Final per-player score for a game (one row per participant). Drives the
+/// end-of-game leaderboard and feeds aggregate User stats.
+model Score {
+  id        String  @id @default(cuid())
+  gameId    String
+  userId    String?
+  playerId  String
+  username  String
+  points    Int     @default(0)
+  placement Int // 1 = winner
+  isWinner  Boolean @default(false)
+
+  game Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([gameId, playerId])
+  @@index([gameId])
+  @@index([userId])
+  @@map("scores")
+}

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(docker --version)",
+      "Bash(python -c ' *)",
+      "Bash(grep -n \"replace\\(/\\\\[\" game.gateway.ts)",
+      "Bash(python3)",
+      "Bash(which python *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(python)",
+      "Bash(rm -f package-lock.json)",
+      "Bash(ls package-lock.json)",
+      "Bash(xargs wc -l)"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@skribble/shared": ["../../packages/shared/src/index.ts"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+}
