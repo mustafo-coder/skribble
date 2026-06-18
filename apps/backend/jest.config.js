@@ -5,7 +5,9 @@ module.exports = {
   testRegex: '.*\\.spec\\.ts$',
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json' }] },
   moduleNameMapper: {
-    '^@skribble/shared$': '<rootDir>/../../../packages/shared/src/index.ts',
+    // Resolve to the BUILT shared package (real .js files). Run
+    // `npm run build -w @skribble/shared` first (CI does this before tests).
+    '^@skribble/shared$': '<rootDir>/../../../packages/shared/dist/index.js',
   },
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',

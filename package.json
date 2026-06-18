@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "npm run build --workspace=@skribble/shared && npm run build --workspace=@skribble/backend && npm run build --workspace=@skribble/frontend",
-    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev --workspace=@skribble/backend\" \"npm run dev --workspace=@skribble/frontend\"",
+    "predev": "npm run build -w @skribble/shared",
+    "dev": "concurrently -n shared,backend,frontend -c gray,blue,magenta \"npm run dev -w @skribble/shared\" \"npm run dev -w @skribble/backend\" \"npm run dev -w @skribble/frontend\"",
     "dev:backend": "npm run dev --workspace=@skribble/backend",
     "dev:frontend": "npm run dev --workspace=@skribble/frontend",
     "lint": "npm run lint --workspaces --if-present",

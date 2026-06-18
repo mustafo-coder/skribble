@@ -11,8 +11,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-skribble}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skribble_dev_password}
-      POSTGRES_DB: ${POSTGRES_DB:-skribble}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: ${POSTGRES_DB:-skribble_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -43,7 +43,7 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-skribble}:${POSTGRES_PASSWORD:-skribble_dev_password}@postgres:5432/${POSTGRES_DB:-skribble}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skribble}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-skribble_db}?schema=public
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}

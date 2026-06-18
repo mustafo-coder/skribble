@@ -1,10 +1,12 @@
-import type {
-  GamePhase,
-  PublicPlayer,
-  RoomSettings,
-  WordCategory,
-  WordDifficulty,
-} from '@skribble/shared';
+import type { GamePhase, PublicPlayer, RoomSettings, WordCategory } from '@skribble/shared';
+
+/**
+ * Difficulty as a plain string union (not a TS enum). Prisma generates its
+ * `WordDifficulty` as a string-literal union too, so this is structurally
+ * compatible with BOTH the Prisma enum and the shared one — avoiding nominal
+ * enum-vs-enum clashes at the words/game boundary.
+ */
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
 /**
  * Server-internal player record. Superset of the public `PublicPlayer` — adds
@@ -50,9 +52,9 @@ export interface LiveRoom {
 /** Secret per-turn data, stored under a separate key. Never broadcast whole. */
 export interface TurnSecret {
   word: string;
-  difficulty: WordDifficulty;
+  difficulty: Difficulty;
   category: WordCategory | null;
-  choices: { word: string; difficulty: WordDifficulty }[];
+  choices: { word: string; difficulty: Difficulty }[];
   /** How many hint letters have been revealed so far. */
   revealedHints: number;
   /** Monotonic draw-op sequence for ordering/validation. */

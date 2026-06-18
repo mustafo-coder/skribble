@@ -5,8 +5,8 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-skribble}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-skribble_dev_password}
-      POSTGRES_DB: ${POSTGRES_DB:-skribble}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: ${POSTGRES_DB:-skribble_db}
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     volumes:

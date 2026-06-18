@@ -11,7 +11,9 @@
       "Bash(python)",
       "Bash(rm -f package-lock.json)",
       "Bash(ls package-lock.json)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Bash(cd \"d:/self/skribble/apps/backend\" && echo \"=== dist tree \\(depth 3\\) ===\" && find dist -name \"main.js\" 2>/dev/null; echo \"---\"; ls dist 2>/dev/null | head; echo \"=== shared symlink ===\"; ls -la ../../node_modules/@skribble/ 2>/dev/null)",
+      "Read(//d/node_modules/**)"
     ]
   }
 }
