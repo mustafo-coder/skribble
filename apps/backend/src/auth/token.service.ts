@@ -62,10 +62,10 @@ export class TokenService {
     const jti = randomUUID();
     const family = ctx.family ?? randomUUID();
     const payload: JwtRefreshPayload = { sub: ctx.userId, jti, family, type: 'refresh' };
+    // `jti` is already in the payload; passing `jwtid` too makes jsonwebtoken throw.
     const token = this.jwt.sign(payload, {
       secret: this.cfg.refreshSecret,
       expiresIn: this.cfg.refreshTtl,
-      jwtid: jti,
     });
 
     await this.prisma.refreshToken.create({

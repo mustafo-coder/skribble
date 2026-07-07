@@ -1,4 +1,26 @@
 import { z } from 'zod';
+import * as dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/**
+ * Load env vars before validation. In a monorepo the apps run with
+ * `cwd = apps/backend`, but `.env` lives at the repo root — so we probe both the
+ * local dir and two levels up. In Docker no `.env` exists (vars come from the
+ * container environment), so this is a harmless no-op there. Idempotent: safe to
+ * call from both `main.ts` (pre-bootstrap) and the ConfigModule loader.
+ */
+let envLoaded = false;
+function ensureEnv() {
+  if (envLoaded) return;
+  envLoaded = true;
+  for (const p of [
+    resolve(process.cwd(), '.env'),
+    resolve(process.cwd(), '../../.env'),
+  ]) {
+    if (existsSync(p)) dotenv.config({ path: p });
+  }
+}
 
 /**
  * Environment schema. Fails fast at boot if anything required is missing or
@@ -22,6 +44,7 @@ const envSchema = z.object({
 export type AppConfig = ReturnType<typeof loadConfig>;
 
 export function loadConfig() {
+  ensureEnv();
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     // Surface every problem at once instead of one-by-one.

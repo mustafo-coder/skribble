@@ -13,7 +13,25 @@
       "Bash(ls package-lock.json)",
       "Bash(xargs wc -l)",
       "Bash(cd \"d:/self/skribble/apps/backend\" && echo \"=== dist tree \\(depth 3\\) ===\" && find dist -name \"main.js\" 2>/dev/null; echo \"---\"; ls dist 2>/dev/null | head; echo \"=== shared symlink ===\"; ls -la ../../node_modules/@skribble/ 2>/dev/null)",
-      "Read(//d/node_modules/**)"
+      "Read(//d/node_modules/**)",
+      "Bash(grep -vE '^#|^$' .env)",
+      "Bash(docker compose *)",
+      "Bash(ls docker-compose* compose*)",
+      "Bash(ls apps/backend/docker-compose* apps/backend/*.env* apps/backend/.env*)",
+      "Bash(ls -a .env* apps/backend/.env*)",
+      "Bash(docker exec *)",
+      "Bash(ls apps/backend/prisma/)",
+      "Bash(ls apps/backend/prisma/migrations/)",
+      "Bash(ls prisma/)",
+      "Bash(npx dotenv *)",
+      "Bash(cat apps/frontend/vite.config.*)",
+      "Bash(grep -rn \"shared\" apps/frontend/tsconfig*.json apps/frontend/vite.config.*)",
+      "Bash(grep -E \"\\\\.\\(js|d\\\\.ts\\)$\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/health)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/register -H \"Content-Type: application/json\" -d '{\"username\":\"testuser1\",\"password\":\"Password123!\",\"displayName\":\"Test\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"health\\(no api\\): %{http_code}\\\\n\" http://localhost:3000/health)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/register -H \"Content-Type: application/json\" -d '{\"username\":\"testuser1\",\"email\":\"test1@example.com\",\"password\":\"Password123!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"test3@example.com\",\"password\":\"Password123!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")"
     ]
   }
 }

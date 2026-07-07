@@ -12,6 +12,8 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind to 0.0.0.0 so devices on the same Wi-Fi/LAN can reach the dev server.
+    host: true,
     port: Number(process.env.FRONTEND_PORT) || 5173,
     proxy: {
       // Dev convenience: proxy API + websocket to the backend.
