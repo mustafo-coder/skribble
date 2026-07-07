@@ -385,12 +385,21 @@ export class GameService {
   // ─── Phase 5→2/6: advance ────────────────────────────────────────────────────
   private async advanceTurn(roomId: string): Promise<void> {
     const updated = await this.store.mutate(roomId, (r) => {
+      // Who just finished drawing — used to avoid them drawing twice in a row
+      // across the round boundary after the re-shuffle below.
+      const lastDrawer = r.drawOrder[r.turnPointer];
       r.turnPointer += 1;
       if (r.turnPointer >= r.drawOrder.length) {
         r.currentRound += 1;
         r.turnPointer = 0;
         if (r.currentRound <= r.settings.rounds) {
-          r.drawOrder = shuffle(r.players.filter((p) => p.connected).map((p) => p.id));
+          const next = shuffle(r.players.filter((p) => p.connected).map((p) => p.id));
+          // If the reshuffle put the previous drawer first, they'd draw two turns
+          // back-to-back. Rotate the first pick to someone else.
+          if (next.length > 1 && next[0] === lastDrawer) {
+            [next[0], next[1]] = [next[1]!, next[0]!];
+          }
+          r.drawOrder = next;
         }
       }
       return r;

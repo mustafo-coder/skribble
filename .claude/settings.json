@@ -31,7 +31,8 @@
       "Bash(curl -s -X POST http://localhost:3000/api/auth/register -H \"Content-Type: application/json\" -d '{\"username\":\"testuser1\",\"password\":\"Password123!\",\"displayName\":\"Test\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
       "Bash(curl -s -o /dev/null -w \"health\\(no api\\): %{http_code}\\\\n\" http://localhost:3000/health)",
       "Bash(curl -s -X POST http://localhost:3000/api/auth/register -H \"Content-Type: application/json\" -d '{\"username\":\"testuser1\",\"email\":\"test1@example.com\",\"password\":\"Password123!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
-      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"test3@example.com\",\"password\":\"Password123!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")"
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"test3@example.com\",\"password\":\"Password123!\"}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
